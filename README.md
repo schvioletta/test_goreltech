@@ -24,20 +24,6 @@ tests/                                   pytest
 render.yaml                              конфиг деплоя на Render
 ```
 
-## Запуск
-
-Нужен Python 3.10+.
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.api:app --reload
-```
-
-Веб-интерфейс — http://127.0.0.1:8000/, Swagger UI — http://127.0.0.1:8000/docs.
-Каталог скилов задаётся переменной окружения `SKILLS_DIR` (по умолчанию `skills`).
-
 ## Эндпоинты
 
 | Метод | Путь | Описание |
