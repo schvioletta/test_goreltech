@@ -1,13 +1,17 @@
-# IDE
-.idea/
-.vscode/
-
 # Python
-__pycache__/
-*.py[cod]
 .venv/
 venv/
+__pycache__/
+*.pyc
 .pytest_cache/
 
-# OS
+# Secrets
+.env
+
+# Generated documents
+*.docx
+
+# IDE / OS
+.idea/
+.vscode/
 .DS_Store
