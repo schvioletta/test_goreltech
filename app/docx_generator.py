@@ -143,7 +143,6 @@ def _add_tasks(doc: DocumentObject, protocol: Protocol) -> None:
     header = table.rows[0]
     _mark_header_row(header)
     for cell, title in zip(header.cells, TASKS_COLUMNS):
-        cell.text = ""
         cell.paragraphs[0].add_run(title).bold = True
     for task in protocol.tasks:
         cells = table.add_row().cells

@@ -5,20 +5,15 @@ from docx import Document
 from fastapi.testclient import TestClient
 
 from app.api import DOCX_MEDIA_TYPE, create_app
-from tests.conftest import skill_md, write_skill
+
+DESCRIPTION = "Когда применять демо-скил."
 
 
 @pytest.fixture
-def skills_root(tmp_path):
-    write_skill(tmp_path, "meeting-protocol",
-                skill_md(name="meeting-protocol", caption="Протокол встречи"), {"routes/a.md": "x"})
-    write_skill(tmp_path, "translator", skill_md(name="translator", caption="Переводчик"))
-    write_skill(tmp_path, "broken", skill_md(name="Broken Name"))
-    return tmp_path
-
-
-@pytest.fixture
-def client(skills_root):
+def client(make_skill, skills_root):
+    make_skill(name="meeting-protocol", caption="Протокол встречи", files={"routes/a.md": "x"})
+    make_skill(name="translator", caption="Переводчик")
+    make_skill(name="Broken Name", dirname="broken")
     return TestClient(create_app(skills_root))
 
 
@@ -26,9 +21,8 @@ def test_list_skills(client):
     resp = client.get("/skills")
     assert resp.status_code == 200
     assert resp.json() == [
-        {"name": "meeting-protocol", "caption": "Протокол встречи", "description": "Когда применять.",
-         "has_files": True},
-        {"name": "translator", "caption": "Переводчик", "description": "Когда применять.", "has_files": False},
+        {"name": "meeting-protocol", "caption": "Протокол встречи", "description": DESCRIPTION, "has_files": True},
+        {"name": "translator", "caption": "Переводчик", "description": DESCRIPTION, "has_files": False},
     ]
 
 
@@ -40,25 +34,24 @@ def test_search_skills(client):
 def test_get_skill_and_404(client):
     resp = client.get("/skills/translator")
     assert resp.status_code == 200
-    assert resp.json()["body"] == "Тело промпта."
+    assert resp.json()["body"] == "Тело системного промпта."
     assert client.get("/skills/nope").status_code == 404
 
 
-def test_reload(client, skills_root):
-    write_skill(skills_root, "new-skill", skill_md(name="new-skill"))
+def test_reload(client, make_skill):
+    make_skill(name="new-skill")
     assert client.get("/skills/new-skill").status_code == 404
-    resp = client.post("/skills/reload")
-    assert resp.json() == {"status": "ok", "count": 3}
+    assert client.post("/skills/reload").json() == {"status": "ok", "count": 3}
     assert client.get("/skills/new-skill").status_code == 200
 
 
-def test_protocol_docx(client, valid_protocol):
-    resp = client.post("/protocol/docx", json={"markdown": valid_protocol})
+def test_protocol_docx(client, sample_protocol):
+    resp = client.post("/protocol/docx", json={"markdown": sample_protocol})
     assert resp.status_code == 200
     assert resp.headers["content-type"] == DOCX_MEDIA_TYPE
     assert resp.headers["content-disposition"] == 'attachment; filename="protocol.docx"'
     doc = Document(io.BytesIO(resp.content))
-    assert doc.paragraphs[0].text == "Протокол встречи: Планирование релиза"
+    assert doc.paragraphs[0].text == "Протокол встречи: Планирование релиза v2.0"
 
 
 @pytest.mark.parametrize("kwargs", [
