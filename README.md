@@ -16,6 +16,7 @@ app/
   protocol_parser.py                     строгий парсер протокола → Protocol
   docx_generator.py                      Protocol → .docx (python-docx) + CLI
   api.py                                 FastAPI-приложение
+  static/index.html                      веб-интерфейс (отдаётся на /)
 tests/                                   pytest
 ```
 
@@ -41,12 +42,25 @@ uvicorn app.api:app --reload
 SKILLS_DIR=/path/to/skills uvicorn app.api:app --reload
 ```
 
-Swagger UI: http://127.0.0.1:8000/docs
+- Веб-интерфейс: http://127.0.0.1:8000/
+- Swagger UI: http://127.0.0.1:8000/docs
+
+Если порт 8000 занят, запустите на другом: `uvicorn app.api:app --reload --port 8001`.
+
+## Веб-интерфейс
+
+Одна страница без сборки и внешних зависимостей, работает через те же эндпоинты API.
+
+- **Протокол → Word** — поле для протокола, кнопки «Подставить пример» (протокол из `eval_queries.md`) и «Скачать .docx». Если формат нарушен, показывается ошибка парсера, а строка с ошибкой выделяется в поле. Черновик сохраняется в браузере.
+- **Скилы** — список с поиском по `name` и `caption`, отметка «есть файлы» (`has_files`), карточка скила с описанием и системным промптом, кнопка «Перезагрузить реестр».
+
+В Swagger у `POST /protocol/docx` есть готовый пример тела: «Try it out» → «Execute» → «Download file».
 
 ## Эндпоинты
 
 | Метод | Путь | Описание |
 | --- | --- | --- |
+| GET | `/` | Веб-интерфейс |
 | GET | `/skills?q=<подстрока>` | Список скилов: `name`, `caption`, `description`, `has_files`. `q` — поиск без учёта регистра по `name` и `caption` |
 | GET | `/skills/{name}` | Метаданные скила + `body`; 404, если скил не найден |
 | POST | `/skills/reload` | Перечитать каталог скилов; ответ `{"status": "ok", "count": N}` |
@@ -69,6 +83,20 @@ python3 -c 'import json,sys; print(json.dumps({"markdown": open(sys.argv[1], enc
 ```bash
 curl -X POST http://127.0.0.1:8000/protocol/docx -H "Content-Type: application/json" --data @body.json -o protocol.docx
 ```
+
+## Деплой на Render
+
+В репозитории есть `render.yaml` (Render Blueprint): Render сам установит зависимости и запустит
+
+```bash
+uvicorn app.api:app --host 0.0.0.0 --port $PORT
+```
+
+1. Войти на https://render.com через GitHub.
+2. New → Blueprint → выбрать этот репозиторий → Apply.
+3. После сборки приложение доступно по адресу `https://<имя-сервиса>.onrender.com`: интерфейс на `/`, Swagger на `/docs`.
+
+Бесплатный инстанс засыпает после 15 минут без запросов; первый запрос после сна занимает до минуты.
 
 ## Генерация .docx из CLI
 

@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Протокол встречи</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --text: #1d2330;
+    --muted: #667085;
+    --border: #e3e6ec;
+    --accent: #2f5bea;
+    --accent-text: #ffffff;
+    --accent-soft: #eaf0ff;
+    --ok: #177245;
+    --ok-soft: #e7f6ee;
+    --err: #b42318;
+    --err-soft: #fdecea;
+    --code-bg: #f2f4f7;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b;
+      --surface: #1a1e26;
+      --text: #e6e8ec;
+      --muted: #98a2b3;
+      --border: #2c323d;
+      --accent: #6d8dff;
+      --accent-text: #0d1020;
+      --accent-soft: #232b45;
+      --ok: #5fd39a;
+      --ok-soft: #173326;
+      --err: #ff8a80;
+      --err-soft: #3a1c1a;
+      --code-bg: #141820;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  h1 { font-size: 22px; margin: 0; }
+  .sub { color: var(--muted); margin: 4px 0 0; }
+  a { color: var(--accent); }
+  .tabs { display: flex; gap: 4px; margin: 24px 0 16px; border-bottom: 1px solid var(--border); }
+  .tab {
+    appearance: none; border: 0; background: none; color: var(--muted); cursor: pointer;
+    font: inherit; font-weight: 600; padding: 10px 14px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .spacer { flex: 1; }
+  button.btn {
+    appearance: none; font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px;
+    padding: 8px 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  }
+  button.btn:hover { border-color: var(--muted); }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  button.btn:disabled { opacity: .6; cursor: progress; }
+  textarea, input[type="search"] {
+    width: 100%; font: inherit; color: var(--text); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+  }
+  textarea {
+    min-height: 460px; resize: vertical; tab-size: 4;
+    font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  textarea:focus, input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .status { margin-top: 12px; padding: 10px 12px; border-radius: 8px; display: none; white-space: pre-wrap; }
+  .status.ok { display: block; background: var(--ok-soft); color: var(--ok); }
+  .status.err { display: block; background: var(--err-soft); color: var(--err); }
+  .status.info { display: block; background: var(--accent-soft); color: var(--text); }
+  details { margin-top: 16px; }
+  summary { cursor: pointer; color: var(--muted); font-weight: 600; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; overflow: auto; font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .grid { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .skill-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .skill-item {
+    width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px;
+  }
+  .skill-item:hover { border-color: var(--muted); }
+  .skill-item[aria-current="true"] { border-color: var(--accent); background: var(--accent-soft); }
+  .skill-caption { font-weight: 600; }
+  .skill-name { color: var(--muted); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .badge {
+    display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); margin-left: 6px; vertical-align: 1px;
+  }
+  .muted { color: var(--muted); }
+  .empty { color: var(--muted); padding: 24px; text-align: center; }
+  .detail h2 { font-size: 18px; margin: 0 0 4px; }
+  .detail .desc { margin: 12px 0; }
+  .hint { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Протокол встречи → Word</h1>
+      <p class="sub">Скил <code>meeting-protocol</code>, реестр скилов и экспорт в .docx</p>
+    </div>
+    <a href="/docs" target="_blank" rel="noopener">API (Swagger) ↗</a>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tab-protocol" aria-controls="panel-protocol" aria-selected="true">Протокол → Word</button>
+    <button class="tab" role="tab" id="tab-skills" aria-controls="panel-skills" aria-selected="false">Скилы</button>
+  </nav>
+
+  <section class="panel active" id="panel-protocol" role="tabpanel" aria-labelledby="tab-protocol">
+    <div class="card">
+      <div class="toolbar">
+        <button class="btn" id="btn-sample" type="button">Подставить пример</button>
+        <button class="btn" id="btn-clear" type="button">Очистить</button>
+        <span class="spacer"></span>
+        <button class="btn primary" id="btn-docx" type="button">Скачать .docx</button>
+      </div>
+      <textarea id="markdown" spellcheck="false"
+        placeholder="Вставьте протокол в формате скила: # Протокол встречи: …, затем разделы Метаданные, Обсуждение, Решения, Задачи, Риски и открытые вопросы."></textarea>
+      <div class="status" id="protocol-status" role="status"></div>
+      <details>
+        <summary>Формат протокола</summary>
+<pre># Протокол встречи: &lt;название&gt;
+
+## Метаданные
+
+- Дата: &lt;ДД.ММ.ГГГГ | не указано&gt;
+- Время: &lt;ЧЧ:ММ | ЧЧ:ММ-ЧЧ:ММ | не указано&gt;
+- Место: &lt;… | не указано&gt;
+- Участники: &lt;… | не указано&gt;
+
+## Обсуждение
+
+### &lt;тема&gt;
+
+&lt;абзац&gt;
+
+## Решения
+
+1. &lt;решение&gt;
+
+## Задачи
+
+| Задача | Ответственный | Срок |
+| --- | --- | --- |
+| &lt;задача&gt; | &lt;имя | не указан&gt; | &lt;ДД.ММ.ГГГГ | не указан&gt; |
+
+## Риски и открытые вопросы
+
+- &lt;риск или вопрос&gt;
+
+Пустой раздел — одна строка «— не указано —».
+Полный контракт: skills/meeting-protocol/references/protocol_format.md</pre>
+      </details>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-skills" role="tabpanel" aria-labelledby="tab-skills">
+    <div class="toolbar">
+      <input type="search" id="skill-q" placeholder="Поиск по name и caption…" aria-label="Поиск скилов" style="max-width: 340px">
+      <span class="muted" id="skill-count"></span>
+      <span class="spacer"></span>
+      <button class="btn" id="btn-reload" type="button">Перезагрузить реестр</button>
+    </div>
+    <div class="status" id="skills-status" role="status"></div>
+    <div class="grid">
+      <ul class="skill-list" id="skill-list"></ul>
+      <div class="card detail" id="skill-detail">
+        <p class="empty">Выберите скил слева, чтобы увидеть его описание и системный промпт.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script type="text/plain" id="sample-protocol">
+# Протокол встречи: Запуск мобильного приложения v2.0
+
+## Метаданные
+
+- Дата: 14.10.2025
+- Время: 11:00-12:00
+- Место: Zoom
+- Участники: Анна Смирнова (PM), Дмитрий Ковалёв (backend), Ольга Лебедева (дизайн), Игорь Петров (QA)
+
+## Обсуждение
+
+### Дата релиза
+
+Изначально рассматривалась дата релиза 10.11. Игорь Петров возразил: на регрессионное тестирование не хватает 3 дней.
+
+По итогу Анна Смирнова зафиксировала дату 12.11 как окончательную.
+
+### Пуш-уведомления
+
+Дмитрий Ковалёв дорабатывает API пуш-уведомлений. Пуш-уведомления согласованы как часть релиза v2.0.
+
+### Онбординг
+
+Ольга Лебедева готовит новые макеты онбординга.
+
+### Аналитика
+
+Обсуждался переход на Amplitude вместо Firebase. Анна Смирнова выступает за Amplitude, Дмитрий Ковалёв против: миграция событий займёт около 2 недель. Решение не принято.
+
+### Платёжный SDK
+
+Вендор обещал выпустить обновление платёжного SDK к 01.11. При задержке оплата в v2.0 останется на старой версии SDK.
+
+### Материалы для стора
+
+Требуется обновить release notes для стора. Необходимо уточнить у Олега из маркетинга вопрос о скриншотах для стора.
+
+## Решения
+
+1. Перенести релиз мобильного приложения v2.0 на 12.11.2025.
+2. Включить пуш-уведомления в релиз v2.0.
+
+## Задачи
+
+| Задача | Ответственный | Срок |
+| --- | --- | --- |
+| Завершить разработку API пуш-уведомлений | Дмитрий Ковалёв | 24.10.2025 |
+| Подготовить план регрессионного тестирования | Игорь Петров | 31.10.2025 |
+| Показать новые макеты онбординга | Ольга Лебедева | не указан |
+| Обновить release notes для стора | не указан | не указан |
+| Уточнить у Олега из маркетинга вопрос о скриншотах для стора | не указан | не указан |
+
+## Риски и открытые вопросы
+
+- В заметках два срока релиза: «10.11» и «12.11»; принят более поздний и явный — 12.11.2025.
+- Срок задачи «Показать новые макеты онбординга» указан размыто: «на следующей неделе».
+- Не назначен ответственный: обновить release notes для стора.
+- Не назначен ответственный: уточнить у Олега из маркетинга вопрос о скриншотах для стора.
+- Не принято решение по системе аналитики: Amplitude или Firebase.
+- Обновление платёжного SDK зависит от вендора (обещано к 01.11); при задержке оплата в v2.0 останется на старом SDK.
+</script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+
+  // --- вкладки ---
+  const tabs = [["tab-protocol", "panel-protocol"], ["tab-skills", "panel-skills"]];
+  function selectTab(tabId) {
+    for (const [t, p] of tabs) {
+      const active = t === tabId;
+      $(t).setAttribute("aria-selected", String(active));
+      $(p).classList.toggle("active", active);
+    }
+    if (tabId === "tab-skills" && !skillsLoaded) loadSkills();
+    history.replaceState(null, "", tabId === "tab-skills" ? "#skills" : "#protocol");
+  }
+  for (const [t] of tabs) $(t).addEventListener("click", () => selectTab(t));
+
+  function setStatus(el, kind, text) {
+    el.className = "status " + kind;
+    el.textContent = text;
+  }
+  function clearStatus(el) {
+    el.className = "status";
+    el.textContent = "";
+  }
+  async function errorText(resp) {
+    try {
+      const data = await resp.json();
+      return typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+    } catch {
+      return resp.status + " " + resp.statusText;
+    }
+  }
+
+  // --- протокол → docx ---
+  const md = $("markdown");
+  const protocolStatus = $("protocol-status");
+  const STORAGE_KEY = "meeting-protocol-draft";
+
+  try { md.value = localStorage.getItem(STORAGE_KEY) || ""; } catch {}
+  md.addEventListener("input", () => {
+    try { localStorage.setItem(STORAGE_KEY, md.value); } catch {}
+  });
+
+  $("btn-sample").addEventListener("click", () => {
+    md.value = $("sample-protocol").textContent.trim() + "\n";
+    md.dispatchEvent(new Event("input"));
+    setStatus(protocolStatus, "info", "Подставлен пример из eval_queries.md. Нажмите «Скачать .docx».");
+  });
+  $("btn-clear").addEventListener("click", () => {
+    md.value = "";
+    md.dispatchEvent(new Event("input"));
+    clearStatus(protocolStatus);
+    md.focus();
+  });
+
+  function selectLine(lineNo) {
+    const lines = md.value.split("\n");
+    if (lineNo < 1 || lineNo > lines.length) return;
+    let start = 0;
+    for (let i = 0; i < lineNo - 1; i++) start += lines[i].length + 1;
+    md.focus();
+    md.setSelectionRange(start, start + lines[lineNo - 1].length);
+    const lineHeight = parseFloat(getComputedStyle(md).lineHeight) || 20;
+    md.scrollTop = Math.max(0, (lineNo - 4) * lineHeight);
+  }
+
+  $("btn-docx").addEventListener("click", async () => {
+    const btn = $("btn-docx");
+    btn.disabled = true;
+    setStatus(protocolStatus, "info", "Собираю документ…");
+    try {
+      const resp = await fetch("/protocol/docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markdown: md.value }),
+      });
+      if (!resp.ok) {
+        const text = await errorText(resp);
+        setStatus(protocolStatus, "err", `Ошибка ${resp.status}: ${text}`);
+        const m = /строка (\d+)/.exec(text);
+        if (m) selectLine(Number(m[1]));
+        return;
+      }
+      const blob = await resp.blob();
+      const disposition = resp.headers.get("Content-Disposition") || "";
+      const filename = (/filename="([^"]+)"/.exec(disposition) || [])[1] || "protocol.docx";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setStatus(protocolStatus, "ok", `Готово: ${filename} (${Math.round(blob.size / 1024)} КБ) скачан.`);
+    } catch (e) {
+      setStatus(protocolStatus, "err", "Сервер недоступен: " + e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // --- скилы ---
+  let skillsLoaded = false;
+  let selectedSkill = null;
+  let searchTimer = null;
+  const list = $("skill-list");
+  const detail = $("skill-detail");
+  const skillsStatus = $("skills-status");
+
+  function el(tag, props = {}, children = []) {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k === "class") node.className = v;
+      else if (k === "text") node.textContent = v;
+      else node.setAttribute(k, v);
+    }
+    for (const c of children) node.append(c);
+    return node;
+  }
+
+  async function loadSkills() {
+    skillsLoaded = true;
+    const q = $("skill-q").value.trim();
+    try {
+      const resp = await fetch("/skills" + (q ? "?q=" + encodeURIComponent(q) : ""));
+      if (!resp.ok) throw new Error(await errorText(resp));
+      renderList(await resp.json(), q);
+    } catch (e) {
+      setStatus(skillsStatus, "err", "Не удалось загрузить скилы: " + e.message);
+    }
+  }
+
+  function renderList(skills, q) {
+    list.replaceChildren();
+    $("skill-count").textContent = q ? `Найдено: ${skills.length}` : `Всего: ${skills.length}`;
+    if (!skills.length) {
+      list.append(el("li", { class: "empty", text: q ? "Ничего не найдено" : "Реестр пуст" }));
+      return;
+    }
+    for (const s of skills) {
+      const title = el("div", { class: "skill-caption", text: s.caption });
+      if (s.has_files) title.append(el("span", { class: "badge", text: "есть файлы" }));
+      const btn = el("button", { class: "skill-item", type: "button" }, [
+        title,
+        el("div", { class: "skill-name", text: s.name }),
+      ]);
+      if (s.name === selectedSkill) btn.setAttribute("aria-current", "true");
+      btn.addEventListener("click", () => openSkill(s.name));
+      list.append(el("li", {}, [btn]));
+    }
+  }
+
+  async function openSkill(name) {
+    selectedSkill = name;
+    for (const b of list.querySelectorAll(".skill-item")) {
+      if (b.querySelector(".skill-name").textContent === name) b.setAttribute("aria-current", "true");
+      else b.removeAttribute("aria-current");
+    }
+    try {
+      const resp = await fetch("/skills/" + encodeURIComponent(name));
+      if (!resp.ok) throw new Error(await errorText(resp));
+      const s = await resp.json();
+      const heading = el("h2", { text: s.caption });
+      if (s.has_files) heading.append(el("span", { class: "badge", text: "есть файлы" }));
+      detail.replaceChildren(
+        heading,
+        el("div", { class: "skill-name", text: s.name }),
+        el("p", { class: "desc", text: s.description }),
+        el("div", { class: "hint", text: `Описание: ${s.description.length} / 1024 символов · тело промпта: ${s.body.length} символов` }),
+        el("details", { open: "" }, [el("summary", { text: "Системный промпт (тело SKILL.md)" }), el("pre", { text: s.body })]),
+      );
+    } catch (e) {
+      detail.replaceChildren(el("p", { class: "empty", text: "Не удалось открыть скил: " + e.message }));
+    }
+  }
+
+  $("skill-q").addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(loadSkills, 200);
+  });
+
+  $("btn-reload").addEventListener("click", async () => {
+    const btn = $("btn-reload");
+    btn.disabled = true;
+    try {
+      const resp = await fetch("/skills/reload", { method: "POST" });
+      if (!resp.ok) throw new Error(await errorText(resp));
+      const data = await resp.json();
+      setStatus(skillsStatus, "ok", `Реестр перезагружен: ${data.count} скил(ов). Битые скилы пропущены — подробности в логе сервера.`);
+      await loadSkills();
+      if (selectedSkill) openSkill(selectedSkill);
+    } catch (e) {
+      setStatus(skillsStatus, "err", "Не удалось перезагрузить: " + e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  const tabFromHash = () => (location.hash === "#skills" ? "tab-skills" : "tab-protocol");
+  window.addEventListener("hashchange", () => selectTab(tabFromHash()));
+  selectTab(tabFromHash());
+})();
+</script>
+</body>
+</html>

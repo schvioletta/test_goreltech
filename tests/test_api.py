@@ -70,3 +70,26 @@ def test_protocol_docx_invalid_format(client):
     resp = client.post("/protocol/docx", json={"markdown": "# Просто заголовок"})
     assert resp.status_code == 422
     assert "формату" in resp.json()["detail"]
+
+
+def test_index_page(client):
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/html")
+    assert "Протокол встречи" in resp.text
+    assert 'id="sample-protocol"' in resp.text
+
+
+def test_openapi_describes_protocol_docx(client):
+    operation = client.get("/openapi.json").json()["paths"]["/protocol/docx"]["post"]
+    body = operation["requestBody"]["content"]["application/json"]
+    assert body["schema"]["required"] == ["markdown"]
+    assert body["example"]["markdown"].startswith("# Протокол встречи: ")
+    assert "application/vnd.openxmlformats-officedocument.wordprocessingml.document" in operation["responses"]["200"]["content"]
+    assert {"400", "422"} <= set(operation["responses"])
+
+
+def test_swagger_example_is_valid_protocol(client):
+    example = client.get("/openapi.json").json()["paths"]["/protocol/docx"]["post"]["requestBody"]["content"][
+        "application/json"]["example"]
+    assert client.post("/protocol/docx", json=example).status_code == 200
