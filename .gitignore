@@ -15,3 +15,6 @@ __pycache__/
 .idea/
 .vscode/
 .DS_Store
+
+# Пример результата конвертера — коммитится намеренно
+!examples/*.docx
