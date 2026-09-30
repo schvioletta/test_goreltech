@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Path as PathParam, Query, Request, Response
 from fastapi.responses import FileResponse
 from starlette.concurrency import run_in_threadpool
 
@@ -81,6 +81,29 @@ PROTOCOL_DOCX_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
+SkillQuery = Annotated[
+    str | None,
+    Query(
+        description="Подстрока для поиска по `name` и `caption` без учёта регистра. Пусто — вернуть все скилы.",
+        openapi_examples={
+            "caption": {"summary": "Поиск по caption: «протокол»", "value": "протокол"},
+            "name": {"summary": "Поиск по name: «meet»", "value": "meet"},
+            "nothing": {"summary": "Ничего не найдено: «nope»", "value": "nope"},
+        },
+    ),
+]
+SkillName = Annotated[
+    str,
+    PathParam(
+        description="Имя скила (`name` из SKILL.md, kebab-case). Список имён — в `GET /skills`.",
+        openapi_examples={
+            "found": {"summary": "Существующий скил", "value": "meeting-protocol"},
+            "not_found": {"summary": "Несуществующий скил → 404", "value": "nope"},
+        },
+    ),
+]
+
+
 def create_app(skills_dir: str | Path | None = None) -> FastAPI:
     registry = SkillRegistry(Path(skills_dir or os.getenv("SKILLS_DIR", DEFAULT_SKILLS_DIR)))
     app = FastAPI(
@@ -94,23 +117,28 @@ def create_app(skills_dir: str | Path | None = None) -> FastAPI:
     def index() -> FileResponse:
         return FileResponse(INDEX_HTML, media_type="text/html; charset=utf-8")
 
-    @app.get("/skills")
-    def list_skills(q: str | None = None) -> list[dict[str, Any]]:
+    @app.get("/skills", summary="Список скилов (с поиском)")
+    def list_skills(q: SkillQuery = None) -> list[dict[str, Any]]:
         return [skill.to_meta() for skill in registry.list(q)]
 
-    @app.get("/skills/{name}")
-    def get_skill(name: str) -> dict[str, Any]:
+    @app.get(
+        "/skills/{name}",
+        summary="Скил по имени: метаданные и системный промпт",
+        responses={404: {"description": "Скил с таким именем не найден"}},
+    )
+    def get_skill(name: SkillName) -> dict[str, Any]:
         skill = registry.get(name)
         if skill is None:
             raise HTTPException(status_code=404, detail=f"Скил '{name}' не найден")
         return {**skill.to_meta(), "body": skill.body}
 
-    @app.post("/skills/reload")
+    @app.post("/skills/reload", summary="Перечитать каталог скилов")
     def reload_skills() -> dict[str, Any]:
         return {"status": "ok", "count": registry.reload()}
 
     @app.post(
         "/protocol/docx",
+        summary="Протокол встречи (markdown) → документ Word",
         openapi_extra=PROTOCOL_DOCX_OPENAPI,
         responses=PROTOCOL_DOCX_RESPONSES,
         response_class=Response,

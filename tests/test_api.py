@@ -93,3 +93,14 @@ def test_swagger_example_is_valid_protocol(client):
     example = client.get("/openapi.json").json()["paths"]["/protocol/docx"]["post"]["requestBody"]["content"][
         "application/json"]["example"]
     assert client.post("/protocol/docx", json=example).status_code == 200
+
+
+def test_openapi_documents_parameters(client):
+    paths = client.get("/openapi.json").json()["paths"]
+    q = paths["/skills"]["get"]["parameters"][0]
+    name = paths["/skills/{name}"]["get"]["parameters"][0]
+    assert q["name"] == "q" and not q["required"] and q["description"]
+    assert name["name"] == "name" and name["in"] == "path" and name["description"]
+    assert [e["value"] for e in name["examples"].values()] == ["meeting-protocol", "nope"]
+    assert "протокол" in [e["value"] for e in q["examples"].values()]
+    assert all(op.get("summary") for path in paths.values() for op in path.values())
