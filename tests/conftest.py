@@ -77,6 +77,37 @@ def _yaml_str(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+@pytest.fixture(autouse=True)
+def no_real_llm(monkeypatch):
+    """Тесты никогда не ходят в настоящую LLM: ключ из окружения и .env скрыт."""
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.setattr("app.api.load_env_file", lambda *a, **k: None)
+
+
+class FakeLLM:
+    """Подмена LLM: отдаёт заранее заданные ответы по очереди и запоминает запросы."""
+
+    model = "fake-model"
+
+    def __init__(self, *responses: str) -> None:
+        self.responses = list(responses)
+        self.calls: list[dict] = []
+
+    def chat(self, messages, *, temperature=0.0, json_mode=False):
+        self.calls.append({"messages": [dict(m) for m in messages], "temperature": temperature, "json_mode": json_mode})
+        if not self.responses:
+            raise AssertionError("FakeLLM: ответы закончились")
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+
+@pytest.fixture
+def fake_llm_factory():
+    return FakeLLM
+
+
 @pytest.fixture
 def skills_root(tmp_path: Path) -> Path:
     root = tmp_path / "skills"

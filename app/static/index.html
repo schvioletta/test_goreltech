@@ -50,10 +50,11 @@
   h1 { font-size: 22px; margin: 0; }
   .sub { color: var(--muted); margin: 4px 0 0; }
   a { color: var(--accent); }
-  .tabs { display: flex; gap: 4px; margin: 24px 0 16px; border-bottom: 1px solid var(--border); }
+  .tabs { display: flex; gap: 4px; margin: 24px 0 16px; border-bottom: 1px solid var(--border); overflow-x: auto; }
   .tab {
     appearance: none; border: 0; background: none; color: var(--muted); cursor: pointer;
     font: inherit; font-weight: 600; padding: 10px 14px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    white-space: nowrap;
   }
   .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
   .panel { display: none; }
@@ -108,25 +109,69 @@
   .detail h2 { font-size: 18px; margin: 0 0 4px; }
   .detail .desc { margin: 12px 0; }
   .hint { color: var(--muted); font-size: 13px; }
+  .stack { display: flex; flex-direction: column; gap: 16px; }
+  .step { font-size: 15px; margin: 0 0 12px; }
+  .step .muted { font-weight: 400; }
+  textarea#notes { min-height: 220px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;
+    padding: 4px 10px; border-radius: 999px; background: var(--code-bg); color: var(--muted); border: 1px solid var(--border);
+  }
+  .pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .pill.on { color: var(--ok); } .pill.on::before { background: var(--ok); }
+  .pill.off { color: var(--err); } .pill.off::before { background: var(--err); }
+  .header-links { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .query-row { display: flex; gap: 8px; }
+  .query-row input { flex: 1; min-width: 0; }
+  table.evals { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.evals th, table.evals td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.evals th { color: var(--muted); font-weight: 600; font-size: 13px; }
+  table.evals td.q { cursor: pointer; }
+  table.evals td.q:hover { color: var(--accent); }
+  table.evals .res { white-space: nowrap; font-weight: 600; }
+  .good { color: var(--ok); } .bad { color: var(--err); }
+  .table-wrap { overflow-x: auto; }
+  input[type="text"] {
+    width: 100%; font: inherit; color: var(--text); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div>
-      <h1>Протокол встречи → Word</h1>
-      <p class="sub">Скил <code>meeting-protocol</code>, реестр скилов и экспорт в .docx</p>
+      <h1>Заметки → протокол → Word</h1>
+      <p class="sub">Скил <code>meeting-protocol</code> на LLM, реестр скилов и экспорт в .docx</p>
     </div>
-    <a href="/docs" target="_blank" rel="noopener">API (Swagger) ↗</a>
+    <div class="header-links">
+      <span class="pill" id="llm-pill">LLM: проверяю…</span>
+      <a href="/docs" target="_blank" rel="noopener">API (Swagger) ↗</a>
+    </div>
   </header>
 
   <nav class="tabs" role="tablist">
-    <button class="tab" role="tab" id="tab-protocol" aria-controls="panel-protocol" aria-selected="true">Протокол → Word</button>
+    <button class="tab" role="tab" id="tab-protocol" aria-controls="panel-protocol" aria-selected="true">Протокол</button>
+    <button class="tab" role="tab" id="tab-classifier" aria-controls="panel-classifier" aria-selected="false">Классификатор</button>
     <button class="tab" role="tab" id="tab-skills" aria-controls="panel-skills" aria-selected="false">Скилы</button>
   </nav>
 
   <section class="panel active" id="panel-protocol" role="tabpanel" aria-labelledby="tab-protocol">
+   <div class="stack">
     <div class="card">
+      <h2 class="step">1. Заметки → протокол <span class="muted">— LLM со скилом meeting-protocol</span></h2>
+      <div class="toolbar">
+        <button class="btn" id="btn-sample-notes" type="button">Пример заметок</button>
+        <span class="hint">Добавьте «кратко» или «TL;DR» — в конце появится раздел «Краткое резюме».</span>
+        <span class="spacer"></span>
+        <button class="btn primary" id="btn-generate" type="button" disabled>Сгенерировать протокол</button>
+      </div>
+      <textarea id="notes" spellcheck="false"
+        placeholder="Вставьте сырые заметки, стенограмму или расшифровку встречи — в любом виде."></textarea>
+      <div class="status" id="generate-status" role="status"></div>
+    </div>
+    <div class="card">
+      <h2 class="step">2. Протокол → Word <span class="muted">— проверка формата и выгрузка .docx</span></h2>
       <div class="toolbar">
         <button class="btn" id="btn-sample" type="button">Подставить пример</button>
         <button class="btn" id="btn-clear" type="button">Очистить</button>
@@ -171,6 +216,34 @@
 Полный контракт: skills/meeting-protocol/references/protocol_format.md</pre>
       </details>
     </div>
+   </div>
+  </section>
+
+  <section class="panel" id="panel-classifier" role="tabpanel" aria-labelledby="tab-classifier">
+   <div class="stack">
+    <div class="card">
+      <h2 class="step">Какой скил выберет классификатор? <span class="muted">— LLM видит только description скилов (первые 250 символов)</span></h2>
+      <div class="query-row">
+        <input type="text" id="classify-q" placeholder="Например: сделай саммари вчерашнего созвона" aria-label="Запрос пользователя">
+        <button class="btn primary" id="btn-classify" type="button" disabled>Определить</button>
+      </div>
+      <div class="status" id="classify-status" role="status"></div>
+    </div>
+    <div class="card">
+      <div class="toolbar">
+        <h2 class="step" style="margin: 0">Eval: 10 запросов из eval_queries.md</h2>
+        <span class="spacer"></span>
+        <span class="muted" id="eval-score"></span>
+        <button class="btn" id="btn-eval" type="button" disabled>Прогнать все</button>
+      </div>
+      <div class="table-wrap">
+        <table class="evals">
+          <thead><tr><th>№</th><th>Запрос <span class="muted">(клик — подставить выше)</span></th><th>Ожидание</th><th>Результат</th></tr></thead>
+          <tbody id="eval-body"><tr><td colspan="4" class="muted">Загружаю…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+   </div>
   </section>
 
   <section class="panel" id="panel-skills" role="tabpanel" aria-labelledby="tab-skills">
@@ -190,6 +263,22 @@
   </section>
 </div>
 
+<script type="text/plain" id="sample-notes">
+Оформи протокол по заметкам:
+
+созвон по запуску мобилки v2.0, 14.10.2025, 11:00-12:00, zoom
+были: Анна Смирнова (PM), Дмитрий Ковалёв (backend), Ольга Лебедева (дизайн), Игорь Петров (QA)
+
+- релиз: сначала говорили 10.11, Игорь против — регресс не успеет за 3 дня.
+  в конце Анна: окей, 12.11, окончательно
+- пуши: Дмитрий доделывает API пушей, обещал до 24.10. пуши точно в релизе, согласовали
+- онбординг: Ольга покажет новые макеты онбординга на следующей неделе
+- аналитика: Amplitude vs оставить Firebase — не договорились, Анна хочет Amplitude, Дмитрий против (миграция событий ~2 недели)
+- Игорь подготовит план регресса до 31.10
+- надо бы кому-то обновить release notes для стора
+- риск: платёжный SDK вендор обещал обновить к 01.11, если не успеют — оплата в v2.0 на старом SDK
+- спросить у Олега из маркетинга про скриншоты для стора
+</script>
 <script type="text/plain" id="sample-protocol">
 # Протокол встречи: Запуск мобильного приложения v2.0
 
@@ -257,7 +346,7 @@
   const $ = (id) => document.getElementById(id);
 
   // --- вкладки ---
-  const tabs = [["tab-protocol", "panel-protocol"], ["tab-skills", "panel-skills"]];
+  const tabs = [["tab-protocol", "panel-protocol"], ["tab-classifier", "panel-classifier"], ["tab-skills", "panel-skills"]];
   function selectTab(tabId) {
     for (const [t, p] of tabs) {
       const active = t === tabId;
@@ -265,7 +354,8 @@
       $(p).classList.toggle("active", active);
     }
     if (tabId === "tab-skills" && !skillsLoaded) loadSkills();
-    history.replaceState(null, "", tabId === "tab-skills" ? "#skills" : "#protocol");
+    if (tabId === "tab-classifier" && !evalsLoaded) loadEvals();
+    history.replaceState(null, "", "#" + tabId.replace("tab-", ""));
   }
   for (const [t] of tabs) $(t).addEventListener("click", () => selectTab(t));
 
@@ -280,7 +370,9 @@
   async function errorText(resp) {
     try {
       const data = await resp.json();
-      return typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+      if (typeof data.detail === "string") return data.detail;
+      if (data.detail && data.detail.message) return data.detail.message;
+      return JSON.stringify(data.detail);
     } catch {
       return resp.status + " " + resp.statusText;
     }
@@ -452,7 +544,163 @@
     }
   });
 
-  const tabFromHash = () => (location.hash === "#skills" ? "tab-skills" : "tab-protocol");
+  // --- LLM: статус, генерация, классификатор ---
+  let llmReady = false;
+  let evalsLoaded = false;
+  let evalQueries = [];
+  const notes = $("notes");
+  const generateStatus = $("generate-status");
+  const NOTES_KEY = "meeting-notes-draft";
+
+  try { notes.value = localStorage.getItem(NOTES_KEY) || ""; } catch {}
+  notes.addEventListener("input", () => {
+    try { localStorage.setItem(NOTES_KEY, notes.value); } catch {}
+  });
+  $("btn-sample-notes").addEventListener("click", () => {
+    notes.value = $("sample-notes").textContent.trim() + "\n";
+    notes.dispatchEvent(new Event("input"));
+    clearStatus(generateStatus);
+  });
+
+  async function checkLlm() {
+    const pill = $("llm-pill");
+    try {
+      const data = await (await fetch("/llm/status")).json();
+      llmReady = data.configured;
+      pill.className = "pill " + (llmReady ? "on" : "off");
+      pill.textContent = llmReady ? "LLM: " + data.model : "LLM не подключена";
+    } catch {
+      pill.className = "pill off";
+      pill.textContent = "LLM: нет связи";
+    }
+    for (const id of ["btn-generate", "btn-classify", "btn-eval"]) $(id).disabled = !llmReady;
+    if (!llmReady) setStatus(generateStatus, "info", "LLM не подключена (нет DEEPSEEK_API_KEY) — шаг 2 работает и без неё.");
+  }
+
+  $("btn-generate").addEventListener("click", async () => {
+    const btn = $("btn-generate");
+    btn.disabled = true;
+    const started = performance.now();
+    setStatus(generateStatus, "info", "Модель пишет протокол… обычно 5–20 секунд.");
+    try {
+      const resp = await fetch("/protocol/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: notes.value }),
+      });
+      if (!resp.ok) {
+        const text = await errorText(resp);
+        setStatus(generateStatus, "err", `Ошибка ${resp.status}: ${text}`);
+        return;
+      }
+      const data = await resp.json();
+      const secs = ((performance.now() - started) / 1000).toFixed(1);
+      if (!data.is_protocol) {
+        setStatus(generateStatus, "info", "Модель задала уточняющий вопрос:\n" + data.markdown);
+        return;
+      }
+      md.value = data.markdown + "\n";
+      md.dispatchEvent(new Event("input"));
+      const repaired = data.attempts > 1 ? ` (формат исправлен со ${data.attempts}-й попытки)` : "";
+      const summary = data.quick_summary ? " · добавлено «Краткое резюме»" : "";
+      setStatus(generateStatus, "ok", `Готово за ${secs} с · ${data.model} · формат проверен парсером${repaired}${summary}. Протокол — в шаге 2.`);
+      setStatus(protocolStatus, "info", "Протокол сгенерирован. Проверьте и нажмите «Скачать .docx».");
+      md.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) {
+      setStatus(generateStatus, "err", "Сервер недоступен: " + e.message);
+    } finally {
+      btn.disabled = !llmReady;
+    }
+  });
+
+  async function classifyQuery(query) {
+    const resp = await fetch("/skills/classify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    if (!resp.ok) throw new Error(`${resp.status}: ${await errorText(resp)}`);
+    return (await resp.json()).skill;
+  }
+
+  $("btn-classify").addEventListener("click", async () => {
+    const status = $("classify-status");
+    const query = $("classify-q").value.trim();
+    if (!query) { setStatus(status, "err", "Введите запрос."); return; }
+    const btn = $("btn-classify");
+    btn.disabled = true;
+    setStatus(status, "info", "Классифицирую…");
+    try {
+      const skill = await classifyQuery(query);
+      setStatus(status, skill ? "ok" : "info", skill ? `Выбран скил: ${skill}` : "Ни один скил не подходит — ассистент ответит без скила.");
+    } catch (e) {
+      setStatus(status, "err", "Ошибка " + e.message);
+    } finally {
+      btn.disabled = !llmReady;
+    }
+  });
+  $("classify-q").addEventListener("keydown", (e) => { if (e.key === "Enter") $("btn-classify").click(); });
+
+  function renderEvals() {
+    const body = $("eval-body");
+    body.replaceChildren();
+    for (const q of evalQueries) {
+      const qCell = el("td", { class: "q", text: q.query, title: q.reason });
+      qCell.addEventListener("click", () => {
+        $("classify-q").value = q.query;
+        $("classify-q").focus();
+      });
+      const expected = q.expected_skill ? q.expected_skill + (q.expects_route ? " + route" : "") : "— (не выбирать)";
+      body.append(el("tr", {}, [
+        el("td", { text: String(q.id) }),
+        qCell,
+        el("td", { class: "muted", text: expected }),
+        el("td", { class: "res", id: "eval-res-" + q.id, text: "" }),
+      ]));
+    }
+  }
+
+  async function loadEvals() {
+    evalsLoaded = true;
+    try {
+      evalQueries = await (await fetch("/eval/queries")).json();
+      renderEvals();
+    } catch (e) {
+      $("eval-body").replaceChildren(el("tr", {}, [el("td", { colspan: "4", class: "bad", text: "Не удалось загрузить: " + e.message })]));
+    }
+  }
+
+  $("btn-eval").addEventListener("click", async () => {
+    const btn = $("btn-eval");
+    btn.disabled = true;
+    let passed = 0, done = 0;
+    for (const q of evalQueries) $("eval-res-" + q.id).textContent = "…";
+    for (const q of evalQueries) {
+      const cell = $("eval-res-" + q.id);
+      try {
+        const got = await classifyQuery(q.query);
+        const ok = got === q.expected_skill;
+        passed += ok;
+        cell.className = "res " + (ok ? "good" : "bad");
+        cell.textContent = (ok ? "✓ " : "✗ ") + (got || "—");
+      } catch (e) {
+        cell.className = "res bad";
+        cell.textContent = "ошибка";
+        cell.title = e.message;
+      }
+      done++;
+      $("eval-score").textContent = `${passed} / ${done}`;
+    }
+    $("eval-score").textContent = `Итого: ${passed} / ${evalQueries.length}`;
+    btn.disabled = !llmReady;
+  });
+
+  checkLlm();
+
+  const tabFromHash = () => {
+    const id = "tab-" + location.hash.slice(1);
+    return tabs.some(([t]) => t === id) ? id : "tab-protocol";
+  };
   window.addEventListener("hashchange", () => selectTab(tabFromHash()));
   selectTab(tabFromHash());
 })();

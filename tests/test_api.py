@@ -14,7 +14,7 @@ def client(make_skill, skills_root):
     make_skill(name="meeting-protocol", caption="Протокол встречи", files={"routes/a.md": "x"})
     make_skill(name="translator", caption="Переводчик")
     make_skill(name="Broken Name", dirname="broken")
-    return TestClient(create_app(skills_root))
+    return TestClient(create_app(skills_root, llm=None))
 
 
 def test_list_skills(client):

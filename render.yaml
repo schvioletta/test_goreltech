@@ -13,3 +13,5 @@ services:
         value: 3.13.6
       - key: SKILLS_DIR
         value: skills
+      - key: DEEPSEEK_API_KEY
+        sync: false
