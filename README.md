@@ -1,5 +1,4 @@
 # test_goreltech
-Тестовое задание для ГОРЭЛТЕХ.
 
 **Демо:** [веб-интерфейс](https://test-goreltech.onrender.com/) · [Swagger UI](https://test-goreltech.onrender.com/docs)
 (бесплатный хостинг засыпает без запросов — первое открытие может занять до минуты)
